@@ -12,13 +12,15 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         token = self.get_argument('token')
 
         channel, timestamp = crypt.decrypt(token).split('|')
-        diff = int(time.time()) - int(timestamp)
+        diff = abs(int(time.time()) - int(timestamp))
 
         if diff < 600:
             self.channel = channel
             logging.info('Channel name: %s' % self.channel)
 
             self.listen()
+        else:
+            logging.warning('Invalid token: %s' % token)
 
     def check_origin(self, origin):
         return True
@@ -50,6 +52,6 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
     def on_close(self):
         logging.info('Connection closed')
 
-        if self.client.subscribed:
+        if hasattr(self, 'client') and self.client.subscribed:
             self.client.unsubscribe(self.channel)
             self.client.disconnect()
