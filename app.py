@@ -17,13 +17,13 @@ console.setLevel(logging.DEBUG)
 
 logger.addHandler(console)
 
-file = logging.FileHandler('logs/error.log')
+file = logging.FileHandler(os.path.dirname(os.path.abspath(__file__)) + '/logs/error.log')
 file.setFormatter(formatter)
 file.setLevel(logging.WARNING)
 
 logger.addHandler(file)
 
-debug = logging.handlers.TimedRotatingFileHandler('logs/debug.log', when='midnight', backupCount=5)
+debug = logging.handlers.TimedRotatingFileHandler(os.path.dirname(os.path.abspath(__file__)) + '/logs/debug.log', when='midnight', backupCount=5)
 debug.setFormatter(logging.Formatter("%(asctime)s\t%(message)s"))
 debug.setLevel(logging.DEBUG)
 
@@ -31,7 +31,7 @@ logger.addHandler(debug)
 
 app = tornado.web.Application([(r'/realtime', realtime.RealtimeHandler), (r'/', index.IndexHandler)])
 
-logging.info('Web socket server is running...')
+logging.info('Web socket server is running on port %s...' % os.environ.get('PORT'))
 
 app.listen(os.environ.get("PORT"))
 tornado.ioloop.IOLoop.instance().start()
