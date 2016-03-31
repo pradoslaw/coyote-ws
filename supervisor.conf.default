@@ -1,0 +1,7 @@
+[program:coyote-ws]
+process_name=%(program_name)s
+command=/usr/bin/python /var/www/coyote-ws/app.py
+autostart=true
+autorestart=true
+redirect_stderr=true
+stdout_logfile=/var/log/supervisor/coyote-ws.log
