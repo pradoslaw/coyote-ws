@@ -1,0 +1,34 @@
+<section id="box-job-offers" class="box sidebar-job-offers">
+    <h4><a href="/Praca">Oferty pracy</a></h4>
+
+    <div class="panel panel-default">
+        <div class="panel-body">
+            {% for job in jobs %}
+                <div class="media">
+                    <div class="media-left">
+                        <a href="#">
+                            {% if job['_source']['firm'] and 'logo' in job['_source']['firm'] %}
+                                <img class="media-object" src="{{ cdn('storage/logo/' + job['_source']['firm']['logo']) }}" alt="{{ job['_source']['firm']['name'] }}">
+                            {% else %}
+                                <img class="media-object" src="{{ cdn('img/logo-gray.png') }}">
+                            {% end %}
+                        </a>
+                    </div>
+                    <div class="media-body">
+                        <h5 class="media-heading"><a href="/Praca/{{ job['_source']['id'] }}-{{ job['_source']['path'] }}">{{ job['_source']['title'] }}</a></h5>
+
+                        {% if job['_source']['firm_id'] %}
+                            <p><a href="" class="employer">{{ job['_source']['firm']['name'] }}</a></p>
+                        {% end %}
+
+                        <p class="bottom"><a href="#">Wrocław</a> • do 5000 zł</p>
+                    </div>
+                </div>
+            {% end %}
+
+            <div class="media">
+                <a href="#" class="text-align">Więcej ofert w pobliżu Wrocław</a>
+            </div>
+        </div>
+    </div>
+</section>
