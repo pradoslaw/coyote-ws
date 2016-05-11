@@ -1,9 +1,12 @@
 import tornadoredis
 import tornado.web
 import tornado.websocket
+import tornado.ioloop
 import utils.crypt as crypt
 import logging
 import time
+import datetime
+import json
 
 
 class RealtimeHandler(tornado.websocket.WebSocketHandler):
@@ -17,11 +20,13 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         # token is valid only for one hour
         if diff < 3600:
             self.channel = channel
-            logging.info('Channel name: %s' % self.channel)
+            logging.info('Client authenticated. Channel name: %s' % self.channel)
 
             self.listen()
+            self.heartbeat()
         else:
             logging.warning('Invalid token: %s' % token)
+            self.close()
 
     def check_origin(self, origin):
         return True
@@ -37,6 +42,19 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
     def open(self, *args):
         logging.info('Client connected')
 
+    def heartbeat(self):
+        """
+        Send heartbeat every 5 minutes.
+        :return:
+        """
+        if self.client.subscribed:
+            try:
+                self.write_message(json.dumps({'event': 'hb', 'data': 'hb'}))
+            except tornado.websocket.WebSocketClosedError:
+                logging.warning('Websocket closed when sending message.')
+
+        tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=5), self.heartbeat)
+
     def on_message(self, message):
         """
         Event subscribe
@@ -46,7 +64,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         """
         logging.info(message)
 
-        if message.kind == 'message':
+        if hasattr(message, 'kind') and message.kind == 'message':
             # send data to client
             self.write_message(str(message.body))
 
