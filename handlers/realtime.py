@@ -14,7 +14,8 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         channel, timestamp = crypt.decrypt(token).split('|')
         diff = abs(int(time.time()) - int(timestamp))
 
-        if diff < 600:
+        # token is valid only for one hour
+        if diff < 3600:
             self.channel = channel
             logging.info('Channel name: %s' % self.channel)
 
