@@ -18,7 +18,7 @@ console.setLevel(logging.DEBUG)
 
 logger.addHandler(console)
 
-log_dir = os.path.dirname(__file__) + '/logs/'
+log_dir = os.path.dirname(os.path.abspath(__file__)) + '/logs'
 
 file = logging.FileHandler(log_dir + '/error.log')
 file.setFormatter(formatter)
