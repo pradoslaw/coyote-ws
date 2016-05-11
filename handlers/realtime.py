@@ -23,7 +23,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
             logging.info('Client authenticated. Channel name: %s' % self.channel)
 
             self.listen()
-            self.heartbeat()
+            tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=5), self.heartbeat)
         else:
             logging.warning('Invalid token: %s' % token)
             self.close()
@@ -53,7 +53,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
             except tornado.websocket.WebSocketClosedError:
                 logging.warning('Websocket closed when sending message.')
 
-        tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=5), self.heartbeat)
+            tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=5), self.heartbeat)
 
     def on_message(self, message):
         """
@@ -74,3 +74,5 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         if hasattr(self, 'client') and self.client.subscribed:
             self.client.unsubscribe(self.channel)
             self.client.disconnect()
+
+        self.client.subscribed = False
