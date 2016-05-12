@@ -41,4 +41,8 @@ app = tornado.web.Application([(r'/realtime', realtime.RealtimeHandler), (r'/', 
 logging.info('Web socket server is running on port %s...' % os.environ.get('PORT'))
 
 app.listen(os.environ.get("PORT"))
-tornado.ioloop.IOLoop.instance().start()
+
+try:
+    tornado.ioloop.IOLoop.instance().start()
+except KeyboardInterrupt:
+    tornado.ioloop.IOLoop.instance().stop()
