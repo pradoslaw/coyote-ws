@@ -38,12 +38,8 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         channel, timestamp = crypt.decrypt(token).split('|')
         diff = abs(int(time.time()) - int(timestamp))
 
-        # token is valid only for one hour
-        # @todo w przypadku gdy uzytkownik ma otwarta przez kilka godzine przegladarke, token
-        # przestanie byc wazny. w sytuacji gdy bedziemy musieli zrestartowac serwer, klient JS nie bedzie
-        # mogl ponownie polaczyc sie z serwerem poniewaz token bedzie niewazny. Pomoze przeladowanie strony
-        # byc moze mozna to rozwiazac w inny sposob?
-        if diff < 3600:
+        # token is valid only for 24 hours
+        if diff < 86400:
             self.channel = channel
             logging.info('Client authenticated. Channel name: %s' % self.channel)
 
