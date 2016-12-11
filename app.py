@@ -32,11 +32,7 @@ debug.setLevel(logging.DEBUG)
 
 logger.addHandler(debug)
 
-tracer = logging.getLogger('elasticsearch.trace')
-tracer.setLevel(logging.INFO)
-tracer.addHandler(logging.FileHandler(log_dir + '/es_trace.log'))
-
-app = tornado.web.Application([(r'/realtime', realtime.RealtimeHandler), (r'/', index.IndexHandler), (r'/jobs', job.JobHandler)], ui_methods=cdn)
+app = tornado.web.Application([(r'/realtime', realtime.RealtimeHandler), (r'/', index.IndexHandler)], ui_methods=cdn)
 
 logging.info('Web socket server is running on port %s...' % os.environ.get('PORT'))
 
