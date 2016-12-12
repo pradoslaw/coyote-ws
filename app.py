@@ -36,7 +36,7 @@ app = tornado.web.Application([(r'/realtime', realtime.RealtimeHandler), (r'/', 
 
 logging.info('Web socket server is running on port %s...' % os.environ.get('PORT'))
 
-app.listen(os.environ.get("PORT"))
+app.listen(os.environ.get('PORT'), os.environ.get('IP'))
 
 try:
     tornado.ioloop.IOLoop.instance().start()
