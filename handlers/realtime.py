@@ -35,10 +35,13 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         clients.append(self)
         logging.info('Client %s connected. Number of clients: %d' % (str(self.request.remote_ip), clients.__len__()))
 
-        token = self.get_argument('token')
+        cookie = self.get_cookie(os.environ['COOKIE'])
 
-        session_id = crypt.decrypt(urllib.unquote(self.get_cookie(os.environ['COOKIE'])).decode('utf8'))
-        channel = crypt.decrypt(token)
+        if not cookie:
+            self.close()
+            return
+
+        session_id = crypt.decrypt(urllib.unquote(cookie).decode('utf8'))
 
         self.client = tornadoredis.Client()
         self.client.connect()
@@ -46,17 +49,21 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         payload = yield tornado.gen.Task(self.client.get, session_id)
 
         if payload is None:
-            logging.warning('Invalid token: %s' % token)
+            logging.error('Session does not exist: %s' % session_id)
             self.close()
 
             return
 
-        self.channel = channel
+        data = loads(payload)
+
+        self.channel = 'user:%d' % data['user_id'] if 'user_id' in data and data['user_id'] is not None else None
         self.session_id = session_id
 
         logging.info('Client authenticated. Channel name: %s' % self.channel)
 
-        self.listen()
+        if self.channel:
+            self.listen()
+
         tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.heartbeat)
 
     def heartbeat(self):
