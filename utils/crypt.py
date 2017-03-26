@@ -24,3 +24,9 @@ def mcrypt_decrypt(value, iv):
 
 def unserialize(serialized):
     return loads(serialized)
+
+
+if __name__ == '__main__':
+    c = "eyJpdiI6IlFpa1lLWDVNS25XY0hUS2RYY205Tnc9PSIsInZhbHVlIjoidFBVR3BtNXhENkt4VDhmUVwvNmlrMWJ2bWE5cm1Ya0NBT1lSek10a2JHeFA0WDRvVFZKM1FjNUFtNU1LQ0ZhajQrRHRaUVplQStJR0xNdUNtTWVrWnVnPT0iLCJtYWMiOiI4ZDliZDZhMjQ0MGVhZTBiYzhmMjZmZmRmNGJhMmQ1NWMwYzcxNzNkZWNmMjM5YTAxMzMzNzQyMzM5MGNkMDRiIn0"
+    # print decrypt(c)
+    print c

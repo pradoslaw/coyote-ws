@@ -7,6 +7,9 @@ import logging
 import time
 import datetime
 import json
+from phpserialize import loads, dumps
+import urllib
+import os
 
 # global array of clients...
 clients = []
@@ -17,37 +20,44 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
 
         self.channel = '' # channel name
         self.client = None
+        self.session_id = None
 
     def check_origin(self, origin):
         return True
 
     @tornado.gen.engine
     def listen(self):
-        self.client = tornadoredis.Client()
-        self.client.connect()
-
         yield tornado.gen.Task(self.client.subscribe, self.channel)
         self.client.listen(self.on_event)
 
+    @tornado.gen.engine
     def open(self, *args):
         clients.append(self)
         logging.info('Client %s connected. Number of clients: %d' % (str(self.request.remote_ip), clients.__len__()))
 
         token = self.get_argument('token')
 
-        channel, timestamp = crypt.decrypt(token).split('|')
-        diff = abs(int(time.time()) - int(timestamp))
+        session_id = crypt.decrypt(urllib.unquote(self.get_cookie(os.environ['COOKIE'])).decode('utf8'))
+        channel = crypt.decrypt(token)
 
-        # token is valid only for 24 hours
-        if diff < 86400:
-            self.channel = channel
-            logging.info('Client authenticated. Channel name: %s' % self.channel)
+        self.client = tornadoredis.Client()
+        self.client.connect()
 
-            self.listen()
-            tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.heartbeat)
-        else:
+        payload = yield tornado.gen.Task(self.client.get, session_id)
+
+        if payload is None:
             logging.warning('Invalid token: %s' % token)
             self.close()
+
+            return
+
+        self.channel = channel
+        self.session_id = session_id
+
+        logging.info('Client authenticated. Channel name: %s' % self.channel)
+
+        self.listen()
+        tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.heartbeat)
 
     def heartbeat(self):
         """
@@ -63,14 +73,27 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
 
             tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.heartbeat)
 
+    @tornado.gen.engine
     def on_message(self, message):
         """
-        Raw message from websocket client. We can just ignore it.
+        Raw message from websocket client.
 
         :param message:
         :return:
         """
         logging.info('Message from websocket client: %s' % message)
+
+        client = tornadoredis.Client()
+        client.connect()
+
+        payload = yield tornado.gen.Task(client.get, self.session_id)
+        data = loads(payload)
+
+        # update last activity timestamp
+        data['updated_at'] = time.time()
+
+        yield tornado.gen.Task(client.set, self.session_id, dumps(data))
+        client.disconnect()
 
     def on_event(self, message):
         """
@@ -93,4 +116,6 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
             self.client.disconnect()
 
         self.client = None
-        clients.remove(self)
+
+        if self in clients:
+            clients.remove(self)
