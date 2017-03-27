@@ -78,6 +78,8 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
             except tornado.websocket.WebSocketClosedError:
                 logging.warning('Websocket closed when sending message.')
 
+                self.close()
+
             tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.heartbeat)
 
     @tornado.gen.engine
@@ -118,7 +120,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
     def on_close(self):
         logging.info('Connection closed')
 
-        if hasattr(self.client, 'subscribed'):
+        if hasattr(self.client, 'subscribed') and self.channel is not None:
             self.client.unsubscribe(self.channel)
             self.client.disconnect()
 
