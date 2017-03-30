@@ -15,7 +15,7 @@ logger.setLevel(logging.INFO)
 
 console = logging.StreamHandler()
 console.setFormatter(formatter)
-console.setLevel(logging.DEBUG)
+console.setLevel(logging.NOTSET)
 
 logger.addHandler(console)
 
@@ -29,7 +29,7 @@ logger.addHandler(file)
 
 debug = logging.handlers.TimedRotatingFileHandler(log_dir + '/debug.log', when='midnight', backupCount=5)
 debug.setFormatter(logging.Formatter("%(asctime)s\t%(message)s"))
-debug.setLevel(logging.DEBUG)
+debug.setLevel(logging.NOTSET)
 
 logger.addHandler(debug)
 

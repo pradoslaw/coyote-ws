@@ -53,7 +53,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         cookie = self.get_cookie(os.environ['COOKIE'])
 
         if not cookie:
-            logging.debug('No cookie provided.')
+            logging.info('No cookie provided.')
             self.send_exit()
             return
 
@@ -61,7 +61,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         payload = yield tornado.gen.Task(self.redis.hget, 'sessions', session_id)
 
         if payload is None:
-            logging.debug('Session does not exist: %s' % session_id)
+            logging.info('Session does not exist: %s' % session_id)
             self.send_exit()
 
             return
