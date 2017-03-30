@@ -134,7 +134,9 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         if hasattr(self.client, 'subscribed') and self.channel is not None:
             self.client.unsubscribe(self.channel)
 
-        self.client.disconnect()
+        if hasattr(self.client, 'disconnect'):
+            self.client.disconnect()
+
         self.client = None
 
         if self in clients:
