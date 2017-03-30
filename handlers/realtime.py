@@ -54,17 +54,20 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
 
             return
 
-        data = loads(payload)
+        try:
+            data = loads(payload)
 
-        self.channel = 'user:%d' % data['user_id'] if 'user_id' in data and data['user_id'] is not None else None
-        self.session_id = session_id
+            self.channel = 'user:%d' % data['user_id'] if 'user_id' in data and data['user_id'] is not None else None
+            self.session_id = session_id
 
-        logging.info('Client authenticated. Channel name: %s' % self.channel)
+            logging.info('Client authenticated. Channel name: %s' % self.channel)
 
-        if self.channel:
-            self.listen()
+            if self.channel:
+                self.listen()
 
-        tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.heartbeat)
+            tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.heartbeat)
+        except ValueError:
+            logging.warning('Can not unserialize PHP object')
 
     def heartbeat(self):
         """
@@ -96,12 +99,17 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         client.connect()
 
         payload = yield tornado.gen.Task(client.get, self.session_id)
-        data = loads(payload)
 
-        # update last activity timestamp
-        data['updated_at'] = time.time()
+        try:
+            data = loads(payload)
 
-        yield tornado.gen.Task(client.set, self.session_id, dumps(data))
+            # update last activity timestamp
+            data['updated_at'] = time.time()
+
+            yield tornado.gen.Task(client.set, self.session_id, dumps(data))
+        except ValueError:
+            logging.warning('Can not unserialize PHP object')
+
         client.disconnect()
 
     def on_event(self, message):
