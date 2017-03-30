@@ -53,15 +53,16 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         cookie = self.get_cookie(os.environ['COOKIE'])
 
         if not cookie:
-            self.close()
+            logging.debug('No cookie provided.')
+            self.send_exit()
             return
 
         session_id = crypt.decrypt(urllib.unquote(cookie).decode('utf8'))
         payload = yield tornado.gen.Task(self.redis.hget, 'sessions', session_id)
 
         if payload is None:
-            logging.error('Session does not exist: %s' % session_id)
-            self.close()
+            logging.debug('Session does not exist: %s' % session_id)
+            self.send_exit()
 
             return
 
@@ -84,16 +85,24 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         Send heartbeat every 2 minutes.
         :return:
         """
-        if hasattr(self.redis, 'subscribed'):
-            try:
-                logging.info('Sending heartbeat...')
-                self.write_message(json.dumps({'event': 'hb', 'data': 'hb'}))
-            except tornado.websocket.WebSocketClosedError:
-                logging.warning('Websocket closed when sending message.')
-
-                self.close()
+        try:
+            logging.info('Sending heartbeat...')
+            self.write_message(json.dumps({'event': 'hb', 'data': 'hb'}))
 
             tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=2), self.heartbeat)
+        except tornado.websocket.WebSocketClosedError:
+            logging.warning('Websocket closed when sending message.')
+
+            self.close()
+
+    def send_exit(self):
+        try:
+            logging.info('Send signal to give up...')
+            self.write_message(json.dumps({'event': 'exit'}))
+        except tornado.websocket.WebSocketClosedError:
+            logging.warning('Websocket closed when sending message.')
+
+        self.close()
 
     @tornado.gen.engine
     def on_message(self, message):
