@@ -64,6 +64,9 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
 
             if self.channel:
                 self.listen()
+            else:
+                # important: close redis connection - no need to listen on channel because there is no channel
+                self.client.disconnect()
 
             tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.heartbeat)
         except ValueError:
@@ -130,8 +133,8 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
 
         if hasattr(self.client, 'subscribed') and self.channel is not None:
             self.client.unsubscribe(self.channel)
-            self.client.disconnect()
 
+        self.client.disconnect()
         self.client = None
 
         if self in clients:
