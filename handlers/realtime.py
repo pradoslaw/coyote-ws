@@ -15,7 +15,8 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
     def __init__(self, *args, **kwargs):
         super(RealtimeHandler, self).__init__(*args, **kwargs)
 
-        self.channel = None # channel name
+        self.listener = None # redis instance
+        self.channel = None
         self.session_id = None
 
     def check_origin(self, origin):
@@ -38,8 +39,11 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         if not self.channel:
             return
 
-        yield tornado.gen.Task(self.redis.subscribe, self.channel)
-        self.redis.listen(self.on_event)
+        self.listener = tornadoredis.Client()
+        self.listener.connect()
+
+        yield tornado.gen.Task(self.listener.subscribe, self.channel)
+        self.listener.listen(self.on_event)
 
     @tornado.gen.engine
     def open(self, *args):
@@ -129,7 +133,11 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
     def on_close(self):
         logging.info('Connection closed')
 
-        if hasattr(self.redis, 'subscribed') and self.channel is not None:
-            self.redis.unsubscribe(self.channel)
+        if self.listener is not None:
+            self.listener.unsubscribe(self.channel)
+            self.listener.disconnect()
+
+            self.listener = None
+            self.channel = None
 
         self.clients -= 1
