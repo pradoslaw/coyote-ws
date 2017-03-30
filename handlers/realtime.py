@@ -11,29 +11,40 @@ from phpserialize import loads, dumps
 import urllib
 import os
 
-# global array of clients...
-clients = []
-
 class RealtimeHandler(tornado.websocket.WebSocketHandler):
     def __init__(self, *args, **kwargs):
         super(RealtimeHandler, self).__init__(*args, **kwargs)
 
-        self.channel = '' # channel name
-        self.client = None
+        self.channel = None # channel name
         self.session_id = None
 
     def check_origin(self, origin):
         return True
 
+    @property
+    def redis(self):
+        return self.settings['redis']
+
+    @property
+    def clients(self):
+        return self.settings['clients']
+
+    @clients.setter
+    def clients(self, value):
+        self.settings['clients'] = value
+
     @tornado.gen.engine
     def listen(self):
-        yield tornado.gen.Task(self.client.subscribe, self.channel)
-        self.client.listen(self.on_event)
+        if not self.channel:
+            return
+
+        yield tornado.gen.Task(self.redis.subscribe, self.channel)
+        self.redis.listen(self.on_event)
 
     @tornado.gen.engine
     def open(self, *args):
-        clients.append(self)
-        logging.info('Client %s connected. Number of clients: %d' % (str(self.request.remote_ip), clients.__len__()))
+        self.clients += 1
+        logging.info('Client %s connected. Number of clients: %d' % (str(self.request.remote_ip), self.clients))
 
         cookie = self.get_cookie(os.environ['COOKIE'])
 
@@ -42,11 +53,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
             return
 
         session_id = crypt.decrypt(urllib.unquote(cookie).decode('utf8'))
-
-        self.client = tornadoredis.Client()
-        self.client.connect()
-
-        payload = yield tornado.gen.Task(self.client.hget, 'sessions', session_id)
+        payload = yield tornado.gen.Task(self.redis.hget, 'sessions', session_id)
 
         if payload is None:
             logging.error('Session does not exist: %s' % session_id)
@@ -62,11 +69,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
 
             logging.info('Client authenticated. Channel name: %s' % self.channel)
 
-            if self.channel:
-                self.listen()
-            else:
-                # important: close redis connection - no need to listen on channel because there is no channel
-                self.client.disconnect()
+            self.listen()
 
             tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.heartbeat)
         except ValueError:
@@ -74,10 +77,10 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
 
     def heartbeat(self):
         """
-        Send heartbeat every 5 minutes.
+        Send heartbeat every 2 minutes.
         :return:
         """
-        if hasattr(self.client, 'subscribed'):
+        if hasattr(self.redis, 'subscribed'):
             try:
                 logging.info('Sending heartbeat...')
                 self.write_message(json.dumps({'event': 'hb', 'data': 'hb'}))
@@ -86,7 +89,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
 
                 self.close()
 
-            tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.heartbeat)
+            tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=2), self.heartbeat)
 
     @tornado.gen.engine
     def on_message(self, message):
@@ -98,10 +101,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         """
         logging.info('Message from websocket client: %s' % message)
 
-        client = tornadoredis.Client()
-        client.connect()
-
-        payload = yield tornado.gen.Task(client.hget, 'sessions', self.session_id)
+        payload = yield tornado.gen.Task(self.redis.hget, 'sessions', self.session_id)
 
         try:
             data = loads(payload)
@@ -109,11 +109,9 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
             # update last activity timestamp
             data['updated_at'] = time.time()
 
-            yield tornado.gen.Task(client.hset, 'sessions', self.session_id, dumps(data))
+            yield tornado.gen.Task(self.redis.hset, 'sessions', self.session_id, dumps(data))
         except ValueError:
             logging.warning('Can not unserialize PHP object')
-
-        client.disconnect()
 
     def on_event(self, message):
         """
@@ -131,13 +129,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
     def on_close(self):
         logging.info('Connection closed')
 
-        if hasattr(self.client, 'subscribed') and self.channel is not None:
-            self.client.unsubscribe(self.channel)
+        if hasattr(self.redis, 'subscribed') and self.channel is not None:
+            self.redis.unsubscribe(self.channel)
 
-        if hasattr(self.client, 'disconnect'):
-            self.client.disconnect()
-
-        self.client = None
-
-        if self in clients:
-            clients.remove(self)
+        self.clients -= 1

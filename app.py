@@ -1,5 +1,6 @@
 import tornado.ioloop
 import tornado.web
+import tornadoredis
 import logging
 import logging.handlers
 import os
@@ -32,8 +33,21 @@ debug.setLevel(logging.DEBUG)
 
 logger.addHandler(debug)
 
-app = tornado.web.Application([(r'/realtime', realtime.RealtimeHandler), (r'/', index.IndexHandler)], ui_methods=cdn)
+class Application(tornado.web.Application):
+    def __init__(self):
+        redis = tornadoredis.Client()
+        redis.connect()
 
+        handlers = [
+            (r'/realtime', realtime.RealtimeHandler), (r'/', index.IndexHandler)
+        ]
+        settings = {
+            'redis': redis,
+            'clients': 0
+        }
+        tornado.web.Application.__init__(self, handlers, **settings)
+
+app = Application()
 logging.info('Web socket server is running on port %s...' % os.environ.get('PORT'))
 
 app.listen(os.environ.get('PORT'), os.environ.get('IP'))
