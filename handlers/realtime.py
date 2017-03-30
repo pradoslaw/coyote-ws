@@ -102,8 +102,6 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         except tornado.websocket.WebSocketClosedError:
             logging.warning('Websocket closed when sending message.')
 
-        self.close()
-
     @tornado.gen.engine
     def on_message(self, message):
         """
