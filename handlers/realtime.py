@@ -46,7 +46,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         self.client = tornadoredis.Client()
         self.client.connect()
 
-        payload = yield tornado.gen.Task(self.client.get, session_id)
+        payload = yield tornado.gen.Task(self.client.hget, 'sessions', session_id)
 
         if payload is None:
             logging.error('Session does not exist: %s' % session_id)
@@ -101,7 +101,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         client = tornadoredis.Client()
         client.connect()
 
-        payload = yield tornado.gen.Task(client.get, self.session_id)
+        payload = yield tornado.gen.Task(client.hget, 'sessions', self.session_id)
 
         try:
             data = loads(payload)
@@ -109,7 +109,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
             # update last activity timestamp
             data['updated_at'] = time.time()
 
-            yield tornado.gen.Task(client.set, self.session_id, dumps(data))
+            yield tornado.gen.Task(client.hset, 'sessions', self.session_id, dumps(data))
         except ValueError:
             logging.warning('Can not unserialize PHP object')
 
