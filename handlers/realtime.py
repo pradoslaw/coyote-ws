@@ -4,10 +4,9 @@ import tornado.websocket
 import tornado.ioloop
 import utils.crypt as crypt
 import logging
-import time
 import datetime
 import json
-from phpserialize import loads, dumps
+from phpserialize import loads
 import urllib
 import os
 
@@ -15,66 +14,97 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
     def __init__(self, *args, **kwargs):
         super(RealtimeHandler, self).__init__(*args, **kwargs)
 
-        self.listener = None # redis instance
+        self.is_connected = False
+
+        # redis instance, only for sub/pub
+        self.listener = None
+        # channel to subscribe
         self.channel = None
-        self.session_id = None
+        # handler returned by add_timeout() method
+        self.timeout_handler = None
 
     def check_origin(self, origin):
         return True
 
     @property
     def redis(self):
+        """
+        Returns global redis instance. Keep in mind that we don't initialize separate redis connection
+
+        :return:
+        """
         return self.settings['redis']
 
     @property
     def clients(self):
+        """
+        Returns global number of connections.
+
+        :return integer:
+        """
         return self.settings['clients']
 
     @clients.setter
     def clients(self, value):
+        """
+        Set number of connections.
+
+        :param value:
+        :return:
+        """
         self.settings['clients'] = value
 
     @tornado.gen.engine
-    def listen(self):
-        if not self.channel:
-            return
-
-        self.listener = tornadoredis.Client()
-        self.listener.connect()
-
-        yield tornado.gen.Task(self.listener.subscribe, self.channel)
-        self.listener.listen(self.on_event)
-
-    @tornado.gen.engine
     def open(self, *args):
+        """
+        Connection was established.
+
+        :param args:
+        :return:
+        """
         self.clients += 1
         logging.info('Client %s connected. Number of clients: %d' % (str(self.request.remote_ip), self.clients))
+
+        self.is_connected = True
 
         cookie = self.get_cookie(os.environ['COOKIE'])
 
         if not cookie:
-            logging.info('No cookie provided.')
             self.send_exit()
             return
 
+        # read session_id from cookie
         session_id = crypt.decrypt(urllib.unquote(cookie).decode('utf8'))
+        # read payload from redis session
         payload = yield tornado.gen.Task(self.redis.hget, 'sessions', session_id)
 
         if payload is None:
-            logging.info('Session does not exist: %s' % session_id)
             self.send_exit()
+        else:
+            self.listen(payload)
 
-            return
+    @tornado.gen.engine
+    def listen(self, payload):
+        """
+        New connection for Redis only for sub/pub.
 
+        :return:
+        """
         try:
             data = loads(payload)
 
             self.channel = 'user:%d' % data['user_id'] if 'user_id' in data and data['user_id'] is not None else None
-            self.session_id = session_id
 
-            logging.info('Client authenticated. Channel name: %s' % self.channel)
+            if self.channel:
+                logging.info('Client authenticated. Channel name: %s' % self.channel)
 
-            self.listen()
+                self.listener = tornadoredis.Client()
+                self.listener.connect()
+
+                yield tornado.gen.Task(self.listener.subscribe, self.channel)
+                self.listener.listen(self.on_event)
+
+            # send heartbeat after successful connection
             self.send_heartbeat()
         except ValueError:
             logging.warning('Can not unserialize PHP object')
@@ -83,28 +113,38 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
 
     def send_heartbeat(self):
         """
-        Send heartbeat every 1 minutes.
+        Send heartbeat every 1 minute.
+
+        :return:
+        """
+        self._send_data({'event': 'hb', 'data': 'hb'})
+
+        if self.is_connected:
+            # MUST BE send every 1 minutes so proxy (nginx) can keep connection alive
+            self.timeout_handler = tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.send_heartbeat)
+
+    def send_exit(self):
+        """
+        Send exit event. WebSocket client WILL NOT attempt to reconnect.
+
+        :return:
+        """
+        self._send_data({'event': 'exit'})
+
+    def _send_data(self, data):
+        """
+        Send data through WebSocket and close connection if error occurs.
+
+        :param data:
         :return:
         """
         try:
-            logging.info('Sending heartbeat...')
-            self.write_message(json.dumps({'event': 'hb', 'data': 'hb'}))
-
-            # MUST BE send every 1 minutes so proxy (nginx) can keep connection alive
-            tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.send_heartbeat)
+            self.write_message(json.dumps(data))
         except tornado.websocket.WebSocketClosedError:
             logging.warning('Websocket closed when sending message.')
 
             self.close()
 
-    def send_exit(self):
-        try:
-            logging.info('Send signal to give up...')
-            self.write_message(json.dumps({'event': 'exit'}))
-        except tornado.websocket.WebSocketClosedError:
-            logging.warning('Websocket closed when sending message.')
-
-    @tornado.gen.engine
     def on_message(self, message):
         """
         Raw message from websocket client.
@@ -113,22 +153,10 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         :return:
         """
         logging.info('Message from websocket client: %s' % message)
-        #
-        # payload = yield tornado.gen.Task(self.redis.hget, 'sessions', self.session_id)
-        #
-        # try:
-        #     data = loads(payload)
-        #
-        #     # update last activity timestamp
-        #     data['updated_at'] = time.time()
-        #
-        #     yield tornado.gen.Task(self.redis.hset, 'sessions', self.session_id, dumps(data))
-        # except ValueError:
-        #     logging.warning('Can not unserialize PHP object')
 
     def on_event(self, message):
         """
-        Event subscribe
+        Pass data from redis to websocket client.
 
         :param message:
         :return:
@@ -136,11 +164,18 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         logging.info(message)
 
         if hasattr(message, 'kind') and message.kind == 'message':
-            # send data to client
             self.write_message(str(message.body))
 
     def on_close(self):
+        """
+        Unsubscribe and close redis connection.
+
+        :return:
+        """
         logging.info('Connection closed')
+
+        if self.timeout_handler is not None:
+            tornado.ioloop.IOLoop.instance().remove_timeout(self.timeout_handler)
 
         if self.listener is not None:
             self.listener.unsubscribe(self.channel)
@@ -150,3 +185,4 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
             self.channel = None
 
         self.clients -= 1
+        self.is_connected = False

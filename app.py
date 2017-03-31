@@ -6,7 +6,6 @@ import logging.handlers
 import os
 import settings # <-- don't remove that line. import project settings
 from handlers import *
-from utils import cdn
 
 formatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
 
