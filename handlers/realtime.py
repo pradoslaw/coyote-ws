@@ -76,20 +76,21 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
 
             self.listen()
 
-            tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.heartbeat)
+            tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.send_heartbeat)
         except ValueError:
             logging.warning('Can not unserialize PHP object')
 
-    def heartbeat(self):
+    def send_heartbeat(self):
         """
-        Send heartbeat every 2 minutes.
+        Send heartbeat every 1 minutes.
         :return:
         """
         try:
             logging.info('Sending heartbeat...')
             self.write_message(json.dumps({'event': 'hb', 'data': 'hb'}))
 
-            tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=2), self.heartbeat)
+            # MUST BE send every 1 minutes so proxy (nginx) can keep connection alive
+            tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.send_heartbeat)
         except tornado.websocket.WebSocketClosedError:
             logging.warning('Websocket closed when sending message.')
 
