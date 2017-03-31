@@ -75,8 +75,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
             logging.info('Client authenticated. Channel name: %s' % self.channel)
 
             self.listen()
-
-            tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.send_heartbeat)
+            self.send_heartbeat()
         except ValueError:
             logging.warning('Can not unserialize PHP object')
 
