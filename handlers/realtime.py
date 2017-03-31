@@ -78,6 +78,8 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
             self.send_heartbeat()
         except ValueError:
             logging.warning('Can not unserialize PHP object')
+        except Exception as e:
+            logging.error(str(e))
 
     def send_heartbeat(self):
         """
@@ -111,18 +113,18 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         :return:
         """
         logging.info('Message from websocket client: %s' % message)
-
-        payload = yield tornado.gen.Task(self.redis.hget, 'sessions', self.session_id)
-
-        try:
-            data = loads(payload)
-
-            # update last activity timestamp
-            data['updated_at'] = time.time()
-
-            yield tornado.gen.Task(self.redis.hset, 'sessions', self.session_id, dumps(data))
-        except ValueError:
-            logging.warning('Can not unserialize PHP object')
+        #
+        # payload = yield tornado.gen.Task(self.redis.hget, 'sessions', self.session_id)
+        #
+        # try:
+        #     data = loads(payload)
+        #
+        #     # update last activity timestamp
+        #     data['updated_at'] = time.time()
+        #
+        #     yield tornado.gen.Task(self.redis.hset, 'sessions', self.session_id, dumps(data))
+        # except ValueError:
+        #     logging.warning('Can not unserialize PHP object')
 
     def on_event(self, message):
         """
