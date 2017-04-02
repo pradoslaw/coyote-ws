@@ -164,7 +164,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         logging.info(message)
 
         if hasattr(message, 'kind') and message.kind == 'message':
-            logging.info('Sending notification to ... ' % self.channel)
+            logging.info('Sending notification to ... %s' % self.channel)
             self.write_message(str(message.body))
 
     def on_close(self):
