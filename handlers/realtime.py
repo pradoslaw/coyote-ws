@@ -2,6 +2,7 @@ import tornadoredis
 import tornado.web
 import tornado.websocket
 import tornado.ioloop
+import tornado.gen
 import utils.crypt as crypt
 import logging
 import datetime
@@ -74,10 +75,15 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
             self._send_exit()
             return
 
-        # read cookie and decrypt it to obtain session id
-        session_id = crypt.decrypt(urllib.unquote(cookie).decode('utf8'))
-        # read payload from redis session
-        payload = yield tornado.gen.Task(self.redis.hget, 'sessions', session_id)
+        payload = None
+
+        try:
+            # read cookie and decrypt it to obtain session id
+            session_id = crypt.decrypt(urllib.unquote(cookie).decode('utf8'))
+            # read payload from redis session
+            payload = yield tornado.gen.Task(self.redis.hget, 'sessions', session_id)
+        except Exception as e:
+            logging.exception(e)
 
         if payload is None:
             self._send_exit()
