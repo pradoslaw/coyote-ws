@@ -7,6 +7,7 @@ import logging
 import time
 import datetime
 import json
+import os
 
 # global array of clients...
 clients = []
@@ -23,7 +24,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
 
     @tornado.gen.engine
     def listen(self):
-        self.client = tornadoredis.Client()
+        self.client = tornadoredis.Client(host=os.environ.get('REDIS_HOST'))
         self.client.connect()
 
         yield tornado.gen.Task(self.client.subscribe, self.channel)

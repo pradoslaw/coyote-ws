@@ -4,7 +4,7 @@ import logging
 import logging.handlers
 import os
 import settings # <-- don't remove that line. import project settings
-from handlers import *
+from handlers import index, realtime
 from utils import cdn
 
 formatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
@@ -37,6 +37,7 @@ app = tornado.web.Application([(r'/realtime', realtime.RealtimeHandler), (r'/', 
 logging.info('Web socket server is running on port %s...' % os.environ.get('PORT'))
 
 app.listen(os.environ.get('PORT'), os.environ.get('IP'))
+# app.listen(8888, '127.0.0.1')
 
 try:
     tornado.ioloop.IOLoop.instance().start()
