@@ -1,0 +1,17 @@
+version: '3.5'
+
+services:
+  websocket:
+    build:
+      context: .
+    volumes:
+      - ./:/var/www/
+    networks:
+      - coyote
+    tty: true
+    ports:
+      - 8888:8888
+
+networks:
+  coyote:
+    name: coyote

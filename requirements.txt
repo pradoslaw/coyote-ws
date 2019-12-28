@@ -1,5 +1,5 @@
 redis
-tornado
+tornado==4.4
 tornado-redis
 phpserialize
 pycrypto
