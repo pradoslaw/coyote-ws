@@ -1,0 +1,5 @@
+/logs/*.log
+.env
+.env.default
+INSTALL.md
+supervisor.conf
