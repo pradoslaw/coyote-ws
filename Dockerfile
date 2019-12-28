@@ -1,7 +1,8 @@
-FROM python:2.7
+FROM python:2.7-alpine
 
-RUN apt-get clean && apt-get update -yqq && apt-get install -y libpq-dev locales
-RUN locale-gen en_US.UTF-8 && update-locale
+RUN apk add tzdata gcc g++ make libffi-dev openssl-dev
+RUN cp /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
+RUN echo "Europe/Warsaw" >  /etc/timezone
 
 WORKDIR /var/www
 
