@@ -43,7 +43,8 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
             logging.info('Client authenticated. Channel name: %s' % self.channel)
 
             self.listen()
-            tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.heartbeat)
+
+            self.heartbeat()
         except:
             logging.warning('Invalid token: %s' % token)
             self.close()
