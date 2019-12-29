@@ -8,6 +8,8 @@ import time
 import datetime
 import json
 import os
+import base64
+import binascii
 
 # global array of clients...
 clients = []
@@ -37,7 +39,12 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         token = self.get_argument('token')
 
         try:
-            channel = crypt.decrypt(token)
+            try:
+                base64.decodestring(token)
+
+                channel, time = crypt.decrypt(token).split('|')
+            except binascii.Error:
+                channel = crypt.jwt_decode(token)
 
             self.channel = channel
             logging.info('Client authenticated. Channel name: %s' % self.channel)
