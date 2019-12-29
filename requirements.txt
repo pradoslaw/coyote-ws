@@ -1,6 +1,5 @@
 redis
 tornado==4.4
 tornado-redis
-phpserialize
-pycrypto
 python-dotenv
+pyjwt

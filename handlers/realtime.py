@@ -36,17 +36,15 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
 
         token = self.get_argument('token')
 
-        channel, timestamp = crypt.decrypt(token).split('|')
-        diff = abs(int(time.time()) - int(timestamp))
+        try:
+            channel = crypt.decrypt(token)
 
-        # token is valid only for 24 hours
-        if diff < 86400:
             self.channel = channel
             logging.info('Client authenticated. Channel name: %s' % self.channel)
 
             self.listen()
             tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.heartbeat)
-        else:
+        except:
             logging.warning('Invalid token: %s' % token)
             self.close()
 
