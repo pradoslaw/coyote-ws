@@ -3,3 +3,4 @@
 .env.default
 INSTALL.md
 supervisor.conf
+**/*.pyc
