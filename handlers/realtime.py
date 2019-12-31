@@ -4,12 +4,9 @@ import tornado.websocket
 import tornado.ioloop
 import utils.crypt as crypt
 import logging
-import time
 import datetime
 import json
 import os
-import base64
-import binascii
 
 # global array of clients...
 clients = []
@@ -39,12 +36,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         token = self.get_argument('token')
 
         try:
-            try:
-                base64.decodestring(token)
-
-                channel, time = crypt.decrypt(token).split('|')
-            except binascii.Error:
-                channel = crypt.jwt_decode(token)
+            channel = crypt.jwt_decode(token)
 
             self.channel = channel
             logging.info('Client authenticated. Channel name: %s' % self.channel)
@@ -52,8 +44,8 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
             self.listen()
 
             self.heartbeat()
-        except:
-            logging.warning('Invalid token: %s' % token)
+        except Exception as e:
+            logging.warning('Invalid token: %s. Error: %s' % (token, str(e)))
             self.close()
 
     def heartbeat(self):
