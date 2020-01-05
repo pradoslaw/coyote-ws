@@ -1,4 +1,4 @@
-/logs/*.log
+/logs/*
 .env
 .env.default
 INSTALL.md
