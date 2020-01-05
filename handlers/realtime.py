@@ -45,7 +45,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
 
             self.heartbeat()
         except Exception as e:
-            logging.warning('Invalid token: %s. Error: %s' % (token, str(e)))
+            logging.warning('Invalid token: %s. Error: %s. Signature: %s' % (token, str(e), os.environ['APP_KEY']))
             self.close()
 
     def heartbeat(self):

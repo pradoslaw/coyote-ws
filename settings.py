@@ -9,6 +9,6 @@ load_dotenv(dotenv_path)
 
 try:
     with open('/run/secrets/APP_KEY_FILE', 'r') as secret_file:
-        environ['APP_KEY'] = secret_file.read()
+        environ['APP_KEY'] = secret_file.read().strip()
 except IOError:
     logging.error('Secret file not found in /run/secrets/APP_KEY_FILE.')
