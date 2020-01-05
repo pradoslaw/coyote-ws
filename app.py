@@ -26,12 +26,6 @@ file.setLevel(logging.WARNING)
 
 logger.addHandler(file)
 
-debug = logging.handlers.TimedRotatingFileHandler(log_dir + '/debug.log', when='midnight', backupCount=5)
-debug.setFormatter(logging.Formatter("%(asctime)s\t%(message)s"))
-debug.setLevel(logging.DEBUG)
-
-logger.addHandler(debug)
-
 app = tornado.web.Application([(r'/realtime', realtime.RealtimeHandler), (r'/', index.IndexHandler)], ui_methods=cdn)
 
 logging.info('Web socket server is running on port %s...' % os.environ.get('PORT'))
