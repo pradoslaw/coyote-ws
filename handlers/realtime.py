@@ -71,6 +71,22 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         """
         logging.info('Message from websocket client: %s' % message)
 
+        try:
+            result = json.loads(message)
+
+            if result['event'][0:7] == 'client-':
+                # result.pop('channel')
+                # result.pop('event')
+
+                self.whisper(result['channel'], result['event'][7:], result)
+
+        except Exception as e:
+            logging.warning(str(e))
+
+    @tornado.gen.engine
+    def whisper(self, channel, event, data):
+        yield tornado.gen.Task(self.client.publish, channel, json.dumps({'event': event, 'data': data}))
+
     def on_event(self, message):
         """
         Event subscribe
