@@ -1,7 +1,5 @@
-redis
-tornado==4.4
-tornado-redis
 python-dotenv
 pyjwt
-phpserialize
 pycrypto
+aioredis
+tornado

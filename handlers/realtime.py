@@ -1,4 +1,5 @@
-import tornadoredis
+import aioredis
+import asyncio
 import tornado.web
 import tornado.websocket
 import tornado.ioloop
@@ -7,27 +8,41 @@ import logging
 import datetime
 import json
 import os
+from aioredis.pubsub import Receiver
 
 # global array of clients...
 clients = []
+
+redis_pool = None
+
+async def redis_connection():
+    global redis_pool
+
+    if not redis_pool:
+        redis_pool = await aioredis.create_redis_pool('redis://redis')
+
+    return redis_pool
 
 class RealtimeHandler(tornado.websocket.WebSocketHandler):
     def __init__(self, *args, **kwargs):
         super(RealtimeHandler, self).__init__(*args, **kwargs)
 
         self.channel = '' # channel name
-        self.client = None
+        self.redis = None
 
     def check_origin(self, origin):
         return True
 
-    @tornado.gen.engine
-    def listen(self):
-        self.client = tornadoredis.Client(host=os.environ.get('REDIS_HOST'))
-        self.client.connect()
+    async def listen(self):
+        self.redis = await redis_connection()
 
-        yield tornado.gen.Task(self.client.subscribe, self.channel)
-        self.client.listen(self.on_event)
+        await self.redis.subscribe(self.channel)
+        channel = self.redis.channels[self.channel]
+
+        while await channel.wait_message():
+            message = await channel.get()
+
+            self.emit_message(message)
 
     def open(self, *args):
         clients.append(self)
@@ -41,7 +56,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
             self.channel = channel
             logging.info('Client authenticated. Channel name: %s' % self.channel)
 
-            self.listen()
+            asyncio.create_task(self.listen())
 
             self.heartbeat()
         except Exception as e:
@@ -53,14 +68,14 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         Send heartbeat every 5 minutes.
         :return:
         """
-        if hasattr(self.client, 'subscribed'):
-            try:
-                logging.info('Sending heartbeat...')
-                self.write_message(json.dumps({'event': 'hb', 'data': 'hb'}))
-            except tornado.websocket.WebSocketClosedError:
-                logging.warning('Websocket closed when sending message.')
+        try:
+            logging.info('Sending heartbeat...')
 
-            tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.heartbeat)
+            self.write_message(json.dumps({'event': 'hb', 'data': 'hb'}))
+        except tornado.websocket.WebSocketClosedError as err:
+            logging.warning('Websocket closed when sending message.' + str(err))
+
+        tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.heartbeat)
 
     def on_message(self, message):
         """
@@ -78,16 +93,15 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
                 # result.pop('channel')
                 # result.pop('event')
 
-                self.whisper(result['channel'], result['event'][7:], result)
+                asyncio.create_task(self.whisper(result['channel'], result['event'][7:], result))
 
         except Exception as e:
             logging.warning(str(e))
 
-    @tornado.gen.engine
-    def whisper(self, channel, event, data):
-        yield tornado.gen.Task(self.client.publish, channel, json.dumps({'event': event, 'data': data}))
+    async def whisper(self, channel, event, data):
+        await self.redis.publish(channel, json.dumps({'event': event, 'data': data}))
 
-    def on_event(self, message):
+    def emit_message(self, message):
         """
         Event subscribe
 
@@ -96,16 +110,14 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         """
         logging.info(message)
 
-        if hasattr(message, 'kind') and message.kind == 'message':
-            # send data to client
-            self.write_message(str(message.body))
+        # send data to client
+        self.write_message(message.decode('ascii'))
 
     def on_close(self):
         logging.info('Connection closed')
 
-        if hasattr(self.client, 'subscribed'):
-            self.client.unsubscribe(self.channel)
-            self.client.disconnect()
+        if hasattr(self.redis, 'subscribed'):
+            asyncio.create_task(self.redis.unsubscribe(self.channel))
 
-        self.client = None
+        self.redis = None
         clients.remove(self)

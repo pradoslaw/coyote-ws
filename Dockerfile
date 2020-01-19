@@ -1,4 +1,4 @@
-FROM python:2.7-alpine
+FROM python:3.8-alpine
 
 RUN apk add tzdata gcc g++ make libffi-dev openssl-dev
 RUN cp /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
