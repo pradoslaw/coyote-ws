@@ -2,6 +2,7 @@ import tornado.ioloop
 import tornado.web
 import logging
 import os
+import signal
 import settings # <-- don't remove that line. import project settings
 from handlers import index, realtime
 
@@ -22,6 +23,14 @@ app = tornado.web.Application([(r'/realtime', realtime.RealtimeHandler), (r'/', 
 logging.info('Web socket server is running on port %s...' % os.environ.get('PORT'))
 
 app.listen(os.environ.get('PORT'), os.environ.get('IP'))
+
+def shutdown_handler(signum):
+    logging.error('Received exit signal: %s' % signum)
+
+    tornado.ioloop.IOLoop.instance().stop()
+
+for s in (signal.SIGHUP, signal.SIGTERM, signal.SIGINT):
+    signal.signal(s, shutdown_handler)
 
 try:
     tornado.ioloop.IOLoop.instance().start()

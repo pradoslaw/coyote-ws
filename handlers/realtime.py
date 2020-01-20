@@ -1,4 +1,3 @@
-import aioredis
 import asyncio
 import tornado.web
 import tornado.websocket
@@ -7,6 +6,7 @@ import logging
 import json
 from utils.redis import redis_connection
 from utils.crypt import jwt_decode
+import datetime
 
 # global array of clients...
 clients = []
@@ -28,6 +28,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         channel = self.redis.channels[channel_name]
 
         self.channel_name = channel_name
+        self.heartbeat()
 
         while await channel.wait_message():
             message = await channel.get()
@@ -51,8 +52,6 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
             logging.info('Client authenticated. Channel name: %s' % channel_name)
 
             asyncio.create_task(self.subscribe(channel_name))
-
-            self.heartbeat()
         except Exception as e:
             logging.warning('Invalid token: %s. Error: %s.' % (token, str(e)))
 
@@ -66,12 +65,11 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         try:
             logging.info('Sending heartbeat...')
 
-            self.ping(json.dumps({'event': 'hb', 'data': 'hb'}))
+            self.write_message(json.dumps({'event': 'hb', 'data': 'hb'}))
         except tornado.websocket.WebSocketClosedError as err:
             logging.warning('Websocket closed when sending message.' + str(err))
         finally:
-            loop = asyncio.get_event_loop()
-            loop.call_later(60, self.heartbeat)
+            tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.heartbeat)
 
     def on_pong(self, data: bytes) -> None:
         logging.info('Pong from websocket client: %s' % str(data))
