@@ -14,7 +14,7 @@ logger.setLevel(logging.NOTSET)
 # log everything on console
 console = logging.StreamHandler()
 console.setFormatter(formatter)
-console.setLevel(logging.INFO)
+console.setLevel(logging.NOTSET)
 
 logger.addHandler(console)
 
