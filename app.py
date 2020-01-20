@@ -8,11 +8,12 @@ from handlers import index, realtime
 formatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-#
+logger.setLevel(logging.NOTSET)
+
+# log everything on console
 console = logging.StreamHandler()
 console.setFormatter(formatter)
-console.setLevel(logging.DEBUG)
+console.setLevel(logging.INFO)
 
 logger.addHandler(console)
 
