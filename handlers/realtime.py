@@ -1,15 +1,19 @@
 import asyncio
-import tornado.web
 import tornado.websocket
 import tornado.ioloop
 import logging
 import json
 from utils.redis import redis_connection
 from utils.crypt import jwt_decode
-import datetime
+from . import clients
 
-# global array of clients...
-clients = []
+def is_valid_json(message):
+    try:
+        obj = json.loads(message)
+    except ValueError:
+        return False
+
+    return obj
 
 class RealtimeHandler(tornado.websocket.WebSocketHandler):
     def __init__(self, *args, **kwargs):
@@ -18,17 +22,25 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         self.redis = None
         self.channel_name = None
 
+    def __del__(self):
+        logging.info('Removing client')
+
     def check_origin(self, origin):
         return True
 
     async def subscribe(self, channel_name):
+        """
+        Subscribe to Redis channel and if - event occurs - pass data to the client by calling emit_message() method
+
+        :param channel_name:
+        :return:
+        """
         self.redis = await redis_connection()
 
         await self.redis.subscribe(channel_name)
         channel = self.redis.channels[channel_name]
 
         self.channel_name = channel_name
-        self.heartbeat()
 
         while await channel.wait_message():
             message = await channel.get()
@@ -38,11 +50,13 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
     async def unsubscribe(self):
         await self.redis.unsubscribe(self.channel_name)
 
+        self.redis = None
+
     async def publish(self, channel_name, data):
         await self.redis.publish(channel_name, data)
 
     def open(self, *args):
-        clients.append(self)
+        clients.add(self)
         logging.info('Client %s connected. Number of clients: %d' % (str(self.request.remote_ip), clients.__len__()))
 
         token = self.get_argument('token')
@@ -57,22 +71,8 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
 
             self.close()
 
-    def heartbeat(self):
-        """
-        Send heartbeat every 1 minutes.
-        :return:
-        """
-        try:
-            logging.info('Sending heartbeat...')
-
-            self.write_message(json.dumps({'event': 'hb', 'data': 'hb'}))
-        except tornado.websocket.WebSocketClosedError as err:
-            logging.warning('Websocket closed when sending message.' + str(err))
-        finally:
-            tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(minutes=1), self.heartbeat)
-
     def on_pong(self, data: bytes) -> None:
-        logging.info('Pong from websocket client: %s' % str(data))
+        logging.debug('Pong from websocket client: %s' % str(data))
 
     def on_message(self, message):
         """
@@ -83,7 +83,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         """
         logging.info('Message from websocket client: %s' % message)
 
-        if not (data := self.__is_valid_json(message)):
+        if not (data := is_valid_json(message)):
             return
 
         try:
@@ -110,14 +110,6 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
 
             logging.info('Unsubscribed')
 
+        logging.info('Connection closed')
         clients.remove(self)
 
-        logging.info('Connection closed')
-
-    def __is_valid_json(self, message):
-        try:
-            obj = json.loads(message)
-        except ValueError:
-            return False
-
-        return obj

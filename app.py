@@ -18,7 +18,7 @@ console.setLevel(logging.NOTSET)
 
 logger.addHandler(console)
 
-app = tornado.web.Application([(r'/realtime', realtime.RealtimeHandler), (r'/', index.IndexHandler)])
+app = tornado.web.Application([(r'/realtime', realtime.RealtimeHandler), (r'/', index.IndexHandler)], websocket_ping_interval=10)
 
 logging.info('Web socket server is running on port %s...' % os.environ.get('PORT'))
 
