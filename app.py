@@ -9,16 +9,16 @@ from handlers import index, realtime
 formatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s] %(message)s")
 
 logger = logging.getLogger()
-logger.setLevel(logging.NOTSET)
+logger.setLevel(logging.INFO)
 
 # log everything on console
 console = logging.StreamHandler()
 console.setFormatter(formatter)
-console.setLevel(logging.NOTSET)
+console.setLevel(logging.INFO)
 
 logger.addHandler(console)
 
-app = tornado.web.Application([(r'/realtime', realtime.RealtimeHandler), (r'/', index.IndexHandler)], websocket_ping_interval=10)
+app = tornado.web.Application([(r'/realtime', realtime.RealtimeHandler), (r'/', index.IndexHandler)], websocket_ping_interval=60)
 
 logging.info('Web socket server is running on port %s...' % os.environ.get('PORT'))
 
