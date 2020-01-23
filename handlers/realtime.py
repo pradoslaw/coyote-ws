@@ -6,6 +6,8 @@ import json
 from utils.redis import redis_connection
 from utils.crypt import jwt_decode
 from . import clients
+import aioredis
+import os
 
 def is_valid_json(message):
     try:
@@ -35,10 +37,8 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         :param channel_name:
         :return:
         """
-        self.redis = await redis_connection()
-
-        await self.redis.subscribe(channel_name)
-        channel = self.redis.channels[channel_name]
+        self.redis = await aioredis.create_redis((os.environ['REDIS_HOST'], 6379))
+        channel, = await self.redis.subscribe(channel_name)
 
         self.channel_name = channel_name
 
@@ -50,10 +50,14 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
     async def unsubscribe(self):
         await self.redis.unsubscribe(self.channel_name)
 
+        self.redis.close()
+
         self.redis = None
 
     async def publish(self, channel_name, data):
-        await self.redis.publish(channel_name, data)
+        pub_connnection = await redis_connection()
+
+        await pub_connnection.publish(channel_name, data)
 
     def open(self, *args):
         clients.add(self)
