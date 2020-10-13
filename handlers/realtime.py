@@ -57,6 +57,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
     async def unsubscribe(self):
         await self.redis.unsubscribe(self.channel_names)
 
+        self.channel_names = []
         self.redis.close()
 
         self.redis = None
@@ -121,8 +122,8 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
             asyncio.create_task(self.unsubscribe())
 
             logging.info('Unsubscribed')
-            self.channel_names = []
 
         logging.info('Connection closed')
+
         clients.remove(self)
 
