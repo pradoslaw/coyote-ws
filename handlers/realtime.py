@@ -5,6 +5,8 @@ import logging
 import json
 from utils.redis import redis_connection
 from utils.crypt import jwt_decode
+from utils.types import ChannelNames
+from aioredis.pubsub import Receiver
 from . import clients
 import aioredis
 import os
@@ -17,12 +19,14 @@ def is_valid_json(message):
 
     return obj
 
+
 class RealtimeHandler(tornado.websocket.WebSocketHandler):
     def __init__(self, *args, **kwargs):
         super(RealtimeHandler, self).__init__(*args, **kwargs)
 
         self.redis = None
-        self.channel_name = None
+        self.channel_names = []
+        self.receiver = Receiver()
 
     def __del__(self):
         logging.info('Removing client')
@@ -30,46 +34,50 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
     def check_origin(self, origin):
         return True
 
-    async def subscribe(self, channel_name):
+    async def subscribe(self, channel_names: ChannelNames):
         """
         Subscribe to Redis channel and if - event occurs - pass data to the client by calling emit_message() method
 
-        :param channel_name:
         :return:
         """
         self.redis = await aioredis.create_redis((os.environ['REDIS_HOST'], 6379))
-        channel, = await self.redis.subscribe(channel_name)
 
-        self.channel_name = channel_name
+        async def reader():
+            async for channel, message in self.receiver.iter():
+                self.emit_message(message)
 
-        while await channel.wait_message():
-            message = await channel.get()
+        asyncio.ensure_future(reader())
 
-            self.emit_message(message)
+        await self.redis.subscribe(
+            *[self.receiver.channel(channel) for channel in channel_names]
+        )
+
+        self.channel_names = channel_names
 
     async def unsubscribe(self):
-        await self.redis.unsubscribe(self.channel_name)
+        await self.redis.unsubscribe(self.channel_names)
 
         self.redis.close()
 
         self.redis = None
 
-    async def publish(self, channel_name, data):
-        pub_connnection = await redis_connection()
+    async def publish(self, channel_name: str, data: str):
+        pub_connection = await redis_connection()
 
-        await pub_connnection.publish(channel_name, data)
+        await pub_connection.publish(channel_name, data)
 
     def open(self, *args):
         clients.add(self)
+
         logging.info('Client %s connected. Number of clients: %d' % (str(self.request.remote_ip), clients.__len__()))
 
         token = self.get_argument('token')
 
         try:
-            channel_name = jwt_decode(token)
-            logging.info('Client authenticated. Channel name: %s' % channel_name)
+            channel_names = jwt_decode(token)
+            logging.info('Client authenticated. Channel name: %s' % channel_names)
 
-            asyncio.create_task(self.subscribe(channel_name))
+            asyncio.create_task(self.subscribe(channel_names))
         except Exception as e:
             logging.warning('Invalid token: %s. Error: %s.' % (token, str(e)))
 
@@ -78,7 +86,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
     def on_pong(self, data: bytes) -> None:
         logging.debug('Pong from websocket client: %s' % str(data))
 
-    def on_message(self, message):
+    def on_message(self, message: str):
         """
         Raw message from websocket client.
 
@@ -96,7 +104,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         except KeyError as e:
             logging.error(str(e))
 
-    def emit_message(self, message):
+    def emit_message(self, message: str):
         """
         Send data to websocket client
 
@@ -106,13 +114,14 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         logging.info(message)
 
         # send data to client
-        self.write_message(message.decode('ascii'))
+        self.write_message(message)
 
     def on_close(self):
-        if self.channel_name and hasattr(self.redis, 'unsubscribe'):
+        if self.channel_names and hasattr(self.redis, 'unsubscribe'):
             asyncio.create_task(self.unsubscribe())
 
             logging.info('Unsubscribed')
+            self.channel_names = []
 
         logging.info('Connection closed')
         clients.remove(self)

@@ -22,7 +22,7 @@ app = tornado.web.Application([(r'/realtime', realtime.RealtimeHandler), (r'/', 
 
 logging.info('Web socket server is running on port %s...' % os.environ.get('PORT'))
 
-app.listen(os.environ.get('PORT'), os.environ.get('IP'))
+app.listen(int(os.environ.get('PORT')), os.environ.get('IP'))
 
 def shutdown_handler(signum):
     logging.error('Received exit signal: %s' % signum)
