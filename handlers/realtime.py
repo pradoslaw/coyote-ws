@@ -55,7 +55,7 @@ class RealtimeHandler(tornado.websocket.WebSocketHandler):
         self.channel_names = channel_names
 
     async def unsubscribe(self):
-        await self.redis.unsubscribe(self.channel_names)
+        await self.redis.unsubscribe(*self.channel_names)
 
         self.channel_names = []
         self.redis.close()
