@@ -1,3 +1,3 @@
-from typing import Union, List
+from typing import Union, List, Set
 
-ChannelNames = Union[str, List[str]]
+ChannelNames = Union[str, Set[str]]
