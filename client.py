@@ -14,8 +14,8 @@ class Client:
     def __init__(self, websocket: WebSocket):
         self._websocket = websocket
         self._redis = None
-        self._allowed_channels: ChannelNames = set()
-        self._channels: ChannelNames = set()
+        self._allowed_channels: ChannelNames = []
+        self._channels: ChannelNames = []
         self._receiver = Receiver()
 
     def __del__(self):
@@ -31,6 +31,9 @@ class Client:
             logging.info('Client authenticated. Allowed channels: %s' % self._allowed_channels)
 
             self._redis = await aioredis.create_redis((os.environ['REDIS_HOST'], 6379))
+            # self._channels = self._allowed_channels
+            #
+            # await self.subscribe()
         except Exception as e:
             logging.warning('Invalid token: %s. Error: %s.' % (token, str(e)))
 
@@ -38,10 +41,10 @@ class Client:
 
     async def handle_message(self, message: str):
         if message[0:9] == 'subscribe':
-            await self.unsubscribe()
+            # await self.unsubscribe()
 
             channel_name = message[10:]
-            self._channels.add(channel_name)
+            self._channels.append(channel_name)
 
             await self.subscribe()
 
@@ -53,9 +56,10 @@ class Client:
         await self.publish(channel_name, dumps(data))
 
     async def publish(self, channel_name: str, data: str):
-        pub_connection = await redis_connection()
+        pool = await redis_connection()
 
-        await pub_connection.publish(channel_name, data)
+        with await pool as conn:
+            await conn.publish(channel_name, data)
 
     async def subscribe(self):
         """
@@ -76,11 +80,10 @@ class Client:
         )
 
         logging.info('Subscribed channels: %s' % self._channels)
+        print(self._redis.channels)
 
     async def unsubscribe(self):
         if self._channels:
             await self._redis.unsubscribe(*self._channels)
-
-        # self._channels = []
 
         logging.info('Unsubscribed')

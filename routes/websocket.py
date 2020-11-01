@@ -33,8 +33,7 @@ async def index(websocket: WebSocket, token: str = Depends(get_token)):
     except WebSocketDisconnect:
         logging.info('Client disconnected')
 
-        active_connections.remove(websocket)
-
         await client.unsubscribe()
+        active_connections.remove(websocket)
 
         del client
