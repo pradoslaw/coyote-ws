@@ -4,13 +4,17 @@ services:
   websocket:
     build:
       context: .
+    command: sh -c "/start-reload.sh"
     volumes:
-      - ./:/var/www/
+      - ./:/app
     networks:
       - coyote
     tty: true
     ports:
       - 8888:8888
+    environment:
+      MODULE_NAME: main
+      PORT: $PORT
 
 networks:
   coyote:

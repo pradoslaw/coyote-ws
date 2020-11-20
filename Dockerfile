@@ -10,10 +10,10 @@ WORKDIR /app
 ENV PYTHONPATH "/app"
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
+ENV MODULE_NAME "main"
+ENV PORT 8888
 
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY . .
-
-CMD ["python", "app.py"]
