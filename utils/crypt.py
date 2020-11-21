@@ -1,9 +1,10 @@
+import os
 import jwt
-from settings import settings
+from typing import Union, List
 from utils.types import ChannelNames
 
 def jwt_decode(token) -> ChannelNames:
-    payload = jwt.decode(token, settings.app_key, algorithms=['HS256'])
+    payload = jwt.decode(token, os.environ['APP_KEY'], algorithms=['HS256'])
 
     return payload['channel']
 

@@ -6,7 +6,6 @@ from utils.types import ChannelNames
 from utils.json import is_valid_json
 from aioredis.pubsub import Receiver
 from json import dumps
-from settings import settings
 import asyncio
 import aioredis
 import os
@@ -31,7 +30,7 @@ class Client:
 
             logging.info('Client authenticated. Allowed channels: %s' % self._allowed_channels)
 
-            self._redis = await aioredis.create_redis((settings.redis_host, 6379))
+            self._redis = await aioredis.create_redis((os.environ['REDIS_HOST'], 6379))
             # self._channels = self._allowed_channels
             #
             # await self.subscribe()
