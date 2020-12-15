@@ -4,3 +4,5 @@
 INSTALL.md
 supervisor.conf
 **/*.pyc
+.git/
+.idea/
