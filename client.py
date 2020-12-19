@@ -14,7 +14,6 @@ class Client:
     def __init__(self, websocket: WebSocket):
         self._websocket = websocket
         self._redis = None
-        self._allowed_channels: ChannelNames = []
         self._channels: ChannelNames = []
         self._receiver = Receiver()
 
@@ -26,14 +25,11 @@ class Client:
 
     async def authorize(self, token: str):
         try:
-            self._allowed_channels = jwt_decode(token)
+            payload = jwt_decode(token)
 
-            logging.info('Client authenticated. Allowed channels: %s' % self._allowed_channels)
+            logging.info('Client authenticated. User: %s' % payload['iss'])
 
             self._redis = await aioredis.create_redis((os.environ['REDIS_HOST'], 6379))
-            # self._channels = self._allowed_channels
-            #
-            # await self.subscribe()
         except Exception as e:
             logging.warning('Invalid token: %s. Error: %s.' % (token, str(e)))
 
@@ -41,8 +37,6 @@ class Client:
 
     async def handle_message(self, message: str):
         if message[0:9] == 'subscribe':
-            # await self.unsubscribe()
-
             channel_name = message[10:]
             self._channels.append(channel_name)
 

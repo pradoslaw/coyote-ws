@@ -1,10 +1,9 @@
 import os
 import jwt
-from utils.types import ChannelNames
 
-def jwt_decode(token) -> ChannelNames:
+def jwt_decode(token):
     payload = jwt.decode(token, os.environ['APP_KEY'], algorithms=['HS256'])
-
-    return payload['channel']
+    print(payload)
+    return payload
 
 
