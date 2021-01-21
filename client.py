@@ -6,6 +6,7 @@ from utils.types import ChannelNames
 from utils.json import is_valid_json
 from aioredis.pubsub import Receiver
 from json import dumps
+from jwt.exceptions import ExpiredSignatureError
 import asyncio
 import aioredis
 import os
@@ -20,8 +21,9 @@ class Client:
     def __del__(self):
         logging.info('Closing connection')
 
-        self._redis.close()
-        self._redis = None
+        if self._redis is not None:
+            self._redis.close()
+            self._redis = None
 
     async def authorize(self, token: str):
         try:
@@ -30,10 +32,13 @@ class Client:
             logging.info('Client authenticated. User: %s' % payload['iss'])
 
             self._redis = await aioredis.create_redis((os.environ['REDIS_HOST'], 6379))
-        except Exception as e:
-            logging.warning('Invalid token: %s. Error: %s.' % (token, str(e)))
+        except ExpiredSignatureError:
+            logging.warning('Invalid token: %s. Signature has expired.' % token)
 
             await self._websocket.close(403)
+        except Exception as e:
+            logging.warning('Error: %s.' % str(e))
+
 
     async def handle_message(self, message: str):
         if message[0:9] == 'subscribe':
