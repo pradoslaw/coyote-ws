@@ -30,10 +30,12 @@ async def index(websocket: WebSocket, token: str = Depends(get_token)):
             logging.info('Message from websocket client: %s' % message)
 
             await client.handle_message(message)
-    except WebSocketDisconnect:
-        logging.info('Client disconnected')
+    except Exception:
+        await websocket.close(code=1000)
 
         await client.unsubscribe()
         active_connections.remove(websocket)
 
         del client
+
+        logging.info('Client disconnected')
