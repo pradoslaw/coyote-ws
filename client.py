@@ -24,7 +24,7 @@ class Client:
 
             logging.info('Client authenticated. User: %s' % payload['iss'])
 
-            self._redis = await aioredis.create_redis((os.environ['REDIS_HOST'], 6379))
+            self._redis = await aioredis.create_redis_pool((os.environ['REDIS_HOST'], 6379))
         except (ExpiredSignatureError, InvalidSignatureError):
             logging.warning('Invalid token: %s. Signature has expired.' % token)
 
